@@ -19,11 +19,8 @@
   /* ── 레이아웃(사이드바 + 본문) ── */
   .layout{display:block;}
   .sidebar{display:none;}
-  .sb-search{padding:0 2px 12px;margin-bottom:8px;border-bottom:1px solid var(--line);}
-  .sb-search input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);}
-  .sb-search input:focus{outline:none;border-color:var(--green);}
-  .sb-search-results{margin-top:6px;max-height:340px;overflow-y:auto;display:none;}
-  .sb-search-results.show{display:block;}
+  .sb-mktlink{display:block;margin-bottom:12px;padding:9px 12px;text-align:center;font-size:13px;font-weight:700;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;text-decoration:none;}
+  .sb-mktlink:hover{border-color:var(--green);color:var(--green-dark);}
   .sb-search-status{font-size:12px;color:var(--muted);padding:6px 4px;}
   .sb-search-item{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--line);}
   .sb-search-item:first-child{border-top:none;}
@@ -50,7 +47,6 @@
   .sb-catwrap.expanded > .sb-subs{display:block;}
   .sb-sub{display:block;padding:6px 11px 6px 30px;font-size:13px;color:var(--muted);cursor:pointer;border-radius:8px;text-decoration:none;}
   .sb-sub:hover{color:var(--accent);background:#f4f7f6;}
-  .sb-sub[href]::after{content:" ↗";font-size:11px;color:#b9c2be;}
   @media(min-width:760px){
     .wrap{max-width:940px;}
     .survey{max-width:600px;margin:0 auto;}
@@ -902,71 +898,9 @@ function marketSearch(q){
       .map(x=>({ prodId:x.prodId, name:x.name, img:x.img||'', url:x.url, variants:x.variants }));
   });
 }
-let _searchTimer=null, _searchToken=0;
-function wireSearchBox(){
-  const input=document.getElementById('sb-search-input');
-  const box=document.getElementById('sb-search-results');
-  if(!input) return;
-  input.addEventListener('input',()=>{
-    clearTimeout(_searchTimer);
-    const q=input.value.trim();
-    if(q.length<1){ box.innerHTML=''; box.classList.remove('show'); return; }
-    box.innerHTML='<div class="sb-search-status">검색 중…</div>'; box.classList.add('show');
-    const myToken=++_searchToken;
-    _searchTimer=setTimeout(async ()=>{
-      const items=await marketSearch(q);
-      if(myToken!==_searchToken) return;   // 늦게 온 응답(경합) 무시
-      renderSearchResults(box, items, q);
-    },200);
-  });
-}
-function renderSearchResults(box, items, q){
-  if(items===null){
-    box.innerHTML='<div class="sb-search-status">검색에 실패했습니다(연결이 느릴 수 있어요). <button type="button" class="sb-search-retry">다시 시도</button></div>';
-    box.querySelector('.sb-search-retry').addEventListener('click', async ()=>{
-      box.innerHTML='<div class="sb-search-status">검색 중…</div>';
-      renderSearchResults(box, await marketSearch(q), q);
-    });
-    return;
-  }
-  if(!items.length){ box.innerHTML='<div class="sb-search-status">검색 결과가 없습니다</div>'; return; }
-  box.innerHTML='';
-  items.slice(0,8).forEach(it=>{
-    const prices=it.variants.map(v=>v.price);
-    const priceTxt = prices.length>1 ? `${won(Math.min(...prices))}~` : won(prices[0]||0);
-    const row=document.createElement('div'); row.className='sb-search-item';
-    row.innerHTML=`
-      ${it.img?`<img class="thumb" src="${it.img}" alt="" loading="lazy" onerror="this.remove()">`:''}
-      <div class="sb-search-info">
-        <div class="sb-search-name">${it.name}</div>
-        <div class="sb-search-price">${priceTxt}</div>
-      </div>
-      <button type="button" class="sb-search-add">담기</button>`;
-    row.querySelector('.sb-search-add').addEventListener('click',()=>addSearchResult(it));
-    box.appendChild(row);
-  });
-}
-function addSearchResult(it){
-  const activeTab=document.querySelector('#tabbar .tab.active');
-  const catKey=activeTab?activeTab.dataset.cat:(META.cats[0]&&META.cats[0].key);
-  if(!catKey || !it.variants.length) return;
-  const catMeta=META.cats.find(c=>c.key===catKey);
-  const first=it.variants[0];
-  const nd={
-    cat:catKey, sub:'🔍 검색으로 추가', mode:(catMeta&&catMeta.mode)||'담기', qtyMode:'none',
-    nm:it.name, prod:it.name, price:first.price, list:first.price,
-    qty:1, on:true, id:NEXT_ID++, url:it.url||'', optId:first.optId, basis:'검색으로 추가',
-    variants:it.variants, img:it.img||'',
-  };
-  DATA.push(nd);
-  const panel=document.querySelector(`#panels .panel[data-cat="${CSS.escape(catKey)}"]`);
-  if(panel && catMeta) renderCartCategory(panel, catMeta);
-  renderSidebar(META.cats);   // 새 하위분류("🔍 검색으로 추가") 링크 반영
-  activateTab(catKey);
-  recalc();
-}
 // ── 하위카테고리 그룹 안에서 바로 검색해서 그 분류에 추가 (2026-08-19, "한약재(46) 옆에 검색" 요청) ──
-// 사이드바 검색은 항상 "🔍 검색으로 추가"라는 별도 묶음에 들어가지만, 이건 그 그룹(예: 한약재) 안에
+// 카테고리별 그룹 안의 "🔍 상품 추가하기" 버튼이 유일한 검색 진입점이다(2026-08-19, 사이드바 상단
+// 전체검색은 제거됨 — "여기서 검색창은 없애도 될거같다" 요청). 검색으로 담으면 그 그룹(예: 한약재) 안에
 // 바로 추가되도록 sub를 고정해서 넣는다. 그룹마다 독립적으로 동작해야 하므로 debounce 상태를
 // 전역 변수가 아니라 그룹 엘리먼트(g)에 지역 변수(클로저)로 들고 있는다.
 function wireGroupSearch(g, catKey, sub){
@@ -1043,15 +977,14 @@ function addSearchResultToSub(it, catKey, sub, g){
   if(results) results.innerHTML='';
   recalc();
 }
+// 마켓 바로가기 — 하위분류 링크가 전부 "견적서 내 이동"으로 바뀌면서(2026-08-19) 그래도 마켓 자체에
+// 가고 싶을 때를 위해 남겨두는 단일 진입점(카테고리별 개별 링크 대신 이거 하나로 통일).
+const MARKET_URL_='https://market.medistream.co.kr';
 function renderSidebar(cats){
   const sb=document.getElementById('sidebar');
   sb.innerHTML=`
-    <div class="sb-search">
-      <input type="text" id="sb-search-input" placeholder="🔍 리스트에 없는 다른 상품 찾기" autocomplete="off">
-      <div class="sb-search-results" id="sb-search-results"></div>
-    </div>
-    <div class="sb-title">카테고리<div class="sb-title-sub">↗ 표시된 항목은 메디마켓으로 이동합니다</div></div>`;
-  wireSearchBox();
+    <a class="sb-mktlink" href="${MARKET_URL_}" target="_blank" rel="noopener">🛒 메디마켓 바로가기 ↗</a>
+    <div class="sb-title">카테고리<div class="sb-title-sub">누르면 견적서 내 해당 항목으로 이동합니다</div></div>`;
   cats.forEach((c,idx)=>{
     const wrap=document.createElement('div'); wrap.className='sb-catwrap'+(idx===0?' expanded':''); wrap.dataset.cat=c.key;
     const ci=document.createElement('div');
@@ -1060,15 +993,16 @@ function renderSidebar(cats){
     ci.innerHTML=`<span class="caret">▸</span><span>${c.icon} ${c.key}</span><span class="sbc" data-cnt="${c.key}">0</span>`;
     ci.addEventListener('click',()=>toggleSidebarCat(c.key));
     wrap.appendChild(ci);
-    // 하위분류: 마켓 URL 있으면 바로 이동, 없으면 해당 섹션으로 스크롤
+    // 하위분류 = 항상 견적서 내 해당 섹션으로 스크롤(2026-08-19, "마켓으로 안 넘어가고 견적서 안에서
+    // 이동하게" 요청 — 예전엔 마켓 URL이 있으면 그쪽으로 바로 이동했음). 실제 담긴 게 있는 하위분류만
+    // 표시(스크롤 대상이 없는 빈 섹션 링크는 의미 없음).
     const subsBox=document.createElement('div'); subsBox.className='sb-subs';
     const inData = subsPresent(c.key);
-    subListOf(c.key).filter(sc=>sc.url || inData.has(sc.name)).forEach(sc=>{
+    subListOf(c.key).filter(sc=>inData.has(sc.name)).forEach(sc=>{
       const sub=sc.name;
       const s=document.createElement('a'); s.className='sb-sub'; s.dataset.cat=c.key; s.dataset.sub=sub;
       s.textContent=sub;
-      if(sc.url){ s.href=sc.url; s.target='_blank'; s.rel='noopener'; }
-      else s.addEventListener('click',()=>{ activateTab(c.key); scrollToSub(c.key,sub); });
+      s.addEventListener('click',()=>{ activateTab(c.key); scrollToSub(c.key,sub); });
       subsBox.appendChild(s);
     });
     wrap.appendChild(subsBox);
