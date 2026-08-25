@@ -1283,11 +1283,13 @@ function recalc(){
     ? `🎁 쿠폰·예치금으로 총 ${won(totalDisc)} 할인됩니다`
     : `🎁 300만원 이상 담으면 추가 할인이 시작됩니다`;
 
-  // 다음 구간까지 남은 금액 등은 "쿠폰이 실제로 적용되는 금액" 기준(eligibleSale) — 가전·도서처럼
-  // 쿠폰이 안 먹는 품목을 아무리 담아도 다른 품목 할인율이 올라가진 않는다(2026-08-21).
+  // 다음 구간까지 남은 금액·% 자체는 "쿠폰이 실제로 적용되는 금액" 기준(eligibleSale)으로 그대로 계산
+  // — 가전·도서처럼 쿠폰이 안 먹는 품목을 아무리 담아도 다른 품목 할인율이 올라가진 않는다(2026-08-21).
+  // 다만 화면에 보여주는 금액 자체는 담은 전체 합계(sale)로 통일 — 아래 최종 합계와 다른 숫자가
+  // 떠서 "워시타워를 담았는데 위쪽엔 왜 안 잡히냐"는 혼란이 있었다(2026-08-25).
   const nEl=document.getElementById('nudge'),bar=document.getElementById('nudge-bar'),txt=document.getElementById('nudge-txt'),need=document.getElementById('nudge-need'),goal=document.getElementById('nudge-goal');
   const curCol=TIER_COLOR[Math.round(rate*100)]||'#9aa0a6';
-  txt.innerHTML=`현재 ${won(eligibleSale)}, <b style="color:${curCol}">${Math.round(rate*100)}% 할인</b>!`;
+  txt.innerHTML=`현재 ${won(sale)}, <b style="color:${curCol}">${Math.round(rate*100)}% 할인</b>!`;
   const next=TIERS.filter(t=>t[0]>eligibleSale).sort((a,b)=>a[0]-b[0])[0];
   if(next){
     const gap=next[0]-eligibleSale;
