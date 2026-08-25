@@ -1148,7 +1148,7 @@ function renderItemRow(d){
     ${d.img?`<img class="thumb" src="${d.img}" alt="" loading="lazy" onerror="this.remove()">`:''}
     <div class="info">
       <div class="pr">${d.url?`<a href="${d.url}" target="_blank" rel="noopener">${d.prod}</a>`:d.prod}</div>
-      <div class="unitpr">판매가 <span class="uprice">${won(d.price)}</span></div>
+      <div class="unitpr">판매가 <span class="uprice">${won(d.price)}</span>${d.noCoupon?' <span class="nocoupon" style="color:var(--gold)">(※쿠폰 적용 불가)</span>':''}</div>
       ${hasVariants?`<div class="optrow">
         <select class="optswitch" aria-label="옵션 선택"></select>
         <select class="optsel" aria-label="다른 옵션 추가"></select>
