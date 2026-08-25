@@ -1275,7 +1275,7 @@ function renderCartCategory(host, c){
 // ── 재계산 (담기 항목만) ──
 function recalc(){
   const on=DATA.filter(d=>d.on);
-  const { sale, rate, afterCouponTotal, finalDeposit, totalDisc } = calcFinal(on);
+  const { sale, eligibleSale, rate, afterCouponTotal, finalDeposit, totalDisc } = calcFinal(on);
 
   // 히어로: 총 합계 → 턴키 추가할인(%)
   document.getElementById('v-total').textContent=won(sale);
@@ -1318,8 +1318,12 @@ function recalc(){
   });
 
   // 하단바: 총 X → 할인 Y(적용된 턴키 쿠폰 %·예치금 할인 구성을 괄호로 명시, 2026-08-25) → 최종 Z
+  // 쿠폰 대상 상품이 하나도 없으면(eligibleSale=0) 실제로 쿠폰이 한 푼도 안 붙은 거라 "턴키 X% 쿠폰"
+  // 문구 자체를 빼고 예치금 할인만 표기 — 안 그러면 쿠폰불가 상품만 담아도 구간 %가 붙어있는 것처럼
+  // 보여서 오해 소지가 있다(사용자 지적, 2026-08-25).
+  const discParts = (eligibleSale>0 ? [`턴키 ${Math.round(rate*100)}% 쿠폰`] : []).concat('예치금 최대 할인').join(' + ');
   document.getElementById('foot-break').innerHTML = totalDisc>0
-    ? `총 <b>${won(sale)}</b> → <span class="disc">${won(totalDisc)} 할인</span>(턴키 ${Math.round(rate*100)}% 쿠폰 + 예치금 최대 할인)`
+    ? `총 <b>${won(sale)}</b> → <span class="disc">${won(totalDisc)} 할인</span>(${discParts})`
     : `선택 ${on.length}품목 · 총 <b>${won(sale)}</b>`;
   document.getElementById('foot-amt').textContent=won(finalDeposit);
   refreshTabBadges();
