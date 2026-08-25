@@ -1283,18 +1283,19 @@ function recalc(){
     ? `🎁 쿠폰·예치금으로 총 ${won(totalDisc)} 할인됩니다`
     : `🎁 300만원 이상 담으면 추가 할인이 시작됩니다`;
 
-  // 다음 구간까지 남은 금액·% 자체는 "쿠폰이 실제로 적용되는 금액" 기준(eligibleSale)으로 그대로 계산
-  // — 가전·도서처럼 쿠폰이 안 먹는 품목을 아무리 담아도 다른 품목 할인율이 올라가진 않는다(2026-08-21).
-  // 다만 화면에 보여주는 금액 자체는 담은 전체 합계(sale)로 통일 — 아래 최종 합계와 다른 숫자가
-  // 떠서 "워시타워를 담았는데 위쪽엔 왜 안 잡히냐"는 혼란이 있었다(2026-08-25).
+  // 상단 진행바는 2026-08-25부터 "담은 전체 합계(sale)" 기준 구간으로 통일 — 쿠폰적용불가 상품이
+  // 섞여 있어도 신경쓰지 않고 그냥 전체 합계가 어느 구간인지만 보여주는 게임화 진행바(사용자 요청:
+  // "쿠폰적용불가 상품 상관없이 그냥 합계 금액으로 해당하는 % 넣어주면 돼"). 실제로 쿠폰이 적용되는
+  // 금액·%(eligibleSale·rate)는 아래 최종 합계 줄에 별도로 명시한다.
+  const dispRate=rateOf(sale);
   const nEl=document.getElementById('nudge'),bar=document.getElementById('nudge-bar'),txt=document.getElementById('nudge-txt'),need=document.getElementById('nudge-need'),goal=document.getElementById('nudge-goal');
-  const curCol=TIER_COLOR[Math.round(rate*100)]||'#9aa0a6';
-  txt.innerHTML=`현재 ${won(sale)}, <b style="color:${curCol}">${Math.round(rate*100)}% 할인</b>!`;
-  const next=TIERS.filter(t=>t[0]>eligibleSale).sort((a,b)=>a[0]-b[0])[0];
+  const curCol=TIER_COLOR[Math.round(dispRate*100)]||'#9aa0a6';
+  txt.innerHTML=`현재 ${won(sale)}, <b style="color:${curCol}">${Math.round(dispRate*100)}% 할인</b>!`;
+  const next=TIERS.filter(t=>t[0]>sale).sort((a,b)=>a[0]-b[0])[0];
   if(next){
-    const gap=next[0]-eligibleSale;
-    const prev=TIERS.filter(t=>t[0]<=eligibleSale).sort((a,b)=>b[0]-a[0])[0][0];
-    const pct=Math.max(6,Math.min(100,Math.round((eligibleSale-prev)/(next[0]-prev)*100)));
+    const gap=next[0]-sale;
+    const prev=TIERS.filter(t=>t[0]<=sale).sort((a,b)=>b[0]-a[0])[0][0];
+    const pct=Math.max(6,Math.min(100,Math.round((sale-prev)/(next[0]-prev)*100)));
     const nextCol=TIER_COLOR[Math.round(next[1]*100)]||'#3b82f6';
     bar.style.width=pct+'%'; bar.style.background=`linear-gradient(90deg,${nextCol}99,${nextCol})`; nEl.classList.remove('done');
     need.innerHTML=`<b style="color:${nextCol}">${won(gap)}</b> 남음`;
@@ -1305,9 +1306,9 @@ function recalc(){
     goal.innerHTML=`🎉 최고 할인 구간 달성`;
   }
 
-  // 쿠폰 구간표: 구간별 색상 + 현재 구간 강조
+  // 쿠폰 구간표: 구간별 색상 + 현재 구간 강조 (역시 sale 기준으로 통일)
   renderCouponTiers();
-  const activeMin=(TIERS.find(t=>eligibleSale>=t[0])||[0])[0];
+  const activeMin=(TIERS.find(t=>sale>=t[0])||[0])[0];
   document.querySelectorAll('#ctiers .ctier').forEach(c=>{
     const col=c.dataset.color, on=Number(c.dataset.min)===activeMin;
     c.classList.toggle('active',on);
@@ -1316,9 +1317,11 @@ function recalc(){
     else { c.style.background='#fff'; c.style.borderColor=col+'55'; c.style.boxShadow='none'; pctEl.style.color=col; amtEl.style.color='var(--muted)'; }
   });
 
-  // 하단바: 총 X → 할인 Y → 최종 Z
+  // 하단바: 총 X → 할인 Y(실제 적용된 턴키 쿠폰 %·예치금 할인 구성을 괄호로 명시, 2026-08-25 —
+  // 위 진행바 %(sale 기준)와 실제 적용 쿠폰 %(eligibleSale 기준, rate)가 다를 수 있어서 헷갈리지
+  // 않게 여기서 실제 적용값을 밝힌다) → 최종 Z
   document.getElementById('foot-break').innerHTML = totalDisc>0
-    ? `총 <b>${won(sale)}</b> → <span class="disc">${won(totalDisc)} 할인</span>`
+    ? `총 <b>${won(sale)}</b> → <span class="disc">${won(totalDisc)} 할인</span>(턴키 ${Math.round(rate*100)}% 쿠폰 + 예치금 최대 할인)`
     : `선택 ${on.length}품목 · 총 <b>${won(sale)}</b>`;
   document.getElementById('foot-amt').textContent=won(finalDeposit);
   refreshTabBadges();
