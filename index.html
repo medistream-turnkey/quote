@@ -460,15 +460,18 @@ const won = n => (Math.round(n)).toLocaleString('ko-KR')+'원';
 //    — 단, 예치금 4%는 그대로 적용(가전·가구 안내문구: "쿠폰 불가, 예치금 최대 4%는 가능").
 //  · 도서 카테고리는 상품 단위 플래그와 무관하게 구간할인·예치금 둘 다 항상 제외(별도 3% 적립 정책이라
 //    이 페이지의 가격 계산엔 반영하지 않음, 안내문구에 이미 명시).
-//  · 구간(300만~600만원) 판정 자체도 "쿠폰이 실제로 적용되는 금액"만으로 계산 — 쿠폰이 안 먹는 금액을
-//    많이 담았다고 다른 품목의 할인율이 올라가는 건 앞뒤가 안 맞기 때문(가전 위주로 담는 원장님 케이스).
+//  · 구간(300만~600만원) 판정은 "담은 전체 합계(sale)" 기준(2026-08-25 변경 — 예전엔 "쿠폰 적용
+//    되는 금액"만으로 판정했는데, "전체 300만원 넘으면 쿠폰 대상 금액이 소액이어도 그 구간 %를
+//    줘야 한다"는 사용자 요청으로 뒤집힘). 실제 할인 금액 자체는 여전히 쿠폰 대상(eligibleSale)에만
+//    곱해 적용 — 쿠폰이 안 먹는 상품 가격이 할인되는 건 아니고, "몇 %를 적용할지" 구간만 전체
+//    합계로 판정한다는 뜻.
 function calcFinal(items){
-  const sale=items.reduce((s,d)=>s+d.price*d.qty,0);   // 장바구니 전체 합계(화면 표시용)
+  const sale=items.reduce((s,d)=>s+d.price*d.qty,0);   // 장바구니 전체 합계(화면 표시용 + 구간 판정 기준)
   const bookSale=items.filter(d=>d.cat==='도서').reduce((s,d)=>s+d.price*d.qty,0);
   const nonBook=items.filter(d=>d.cat!=='도서');
   const eligibleSale=nonBook.filter(d=>!d.noCoupon).reduce((s,d)=>s+d.price*d.qty,0);
   const ineligibleSale=nonBook.filter(d=>d.noCoupon).reduce((s,d)=>s+d.price*d.qty,0);
-  const rate=rateOf(eligibleSale);
+  const rate=rateOf(sale);
   const couponDisc=Math.round(eligibleSale*rate);
   const eligibleAfterCoupon=eligibleSale-couponDisc;
   const afterCouponTotal=sale-couponDisc;                      // 장바구니 전체 기준 "쿠폰 적용 후" 금액(화면 표시용)
@@ -1272,7 +1275,7 @@ function renderCartCategory(host, c){
 // ── 재계산 (담기 항목만) ──
 function recalc(){
   const on=DATA.filter(d=>d.on);
-  const { sale, eligibleSale, rate, afterCouponTotal, finalDeposit, totalDisc } = calcFinal(on);
+  const { sale, rate, afterCouponTotal, finalDeposit, totalDisc } = calcFinal(on);
 
   // 히어로: 총 합계 → 턴키 추가할인(%)
   document.getElementById('v-total').textContent=won(sale);
@@ -1283,14 +1286,11 @@ function recalc(){
     ? `🎁 쿠폰·예치금으로 총 ${won(totalDisc)} 할인됩니다`
     : `🎁 300만원 이상 담으면 추가 할인이 시작됩니다`;
 
-  // 상단 진행바는 2026-08-25부터 "담은 전체 합계(sale)" 기준 구간으로 통일 — 쿠폰적용불가 상품이
-  // 섞여 있어도 신경쓰지 않고 그냥 전체 합계가 어느 구간인지만 보여주는 게임화 진행바(사용자 요청:
-  // "쿠폰적용불가 상품 상관없이 그냥 합계 금액으로 해당하는 % 넣어주면 돼"). 실제로 쿠폰이 적용되는
-  // 금액·%(eligibleSale·rate)는 아래 최종 합계 줄에 별도로 명시한다.
-  const dispRate=rateOf(sale);
+  // 진행바 구간도 calcFinal()의 rate와 동일하게 "담은 전체 합계(sale)" 기준(2026-08-25) — 쿠폰
+  // 대상 상품이 소액이어도 전체 합계가 구간을 넘으면 그 구간 %를 그대로 준다(사용자 요청).
   const nEl=document.getElementById('nudge'),bar=document.getElementById('nudge-bar'),txt=document.getElementById('nudge-txt'),need=document.getElementById('nudge-need'),goal=document.getElementById('nudge-goal');
-  const curCol=TIER_COLOR[Math.round(dispRate*100)]||'#9aa0a6';
-  txt.innerHTML=`현재 ${won(sale)}, <b style="color:${curCol}">${Math.round(dispRate*100)}% 할인</b>!`;
+  const curCol=TIER_COLOR[Math.round(rate*100)]||'#9aa0a6';
+  txt.innerHTML=`현재 ${won(sale)}, <b style="color:${curCol}">${Math.round(rate*100)}% 할인</b>!`;
   const next=TIERS.filter(t=>t[0]>sale).sort((a,b)=>a[0]-b[0])[0];
   if(next){
     const gap=next[0]-sale;
@@ -1317,9 +1317,7 @@ function recalc(){
     else { c.style.background='#fff'; c.style.borderColor=col+'55'; c.style.boxShadow='none'; pctEl.style.color=col; amtEl.style.color='var(--muted)'; }
   });
 
-  // 하단바: 총 X → 할인 Y(실제 적용된 턴키 쿠폰 %·예치금 할인 구성을 괄호로 명시, 2026-08-25 —
-  // 위 진행바 %(sale 기준)와 실제 적용 쿠폰 %(eligibleSale 기준, rate)가 다를 수 있어서 헷갈리지
-  // 않게 여기서 실제 적용값을 밝힌다) → 최종 Z
+  // 하단바: 총 X → 할인 Y(적용된 턴키 쿠폰 %·예치금 할인 구성을 괄호로 명시, 2026-08-25) → 최종 Z
   document.getElementById('foot-break').innerHTML = totalDisc>0
     ? `총 <b>${won(sale)}</b> → <span class="disc">${won(totalDisc)} 할인</span>(턴키 ${Math.round(rate*100)}% 쿠폰 + 예치금 최대 할인)`
     : `선택 ${on.length}품목 · 총 <b>${won(sale)}</b>`;
