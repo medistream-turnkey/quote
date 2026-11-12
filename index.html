@@ -1376,7 +1376,7 @@ function subListOf(catKey){
 function buyBadgeHtml(d){
   const parts=[];
   if(d.tier==='필수') parts.push('<span class="bb ess">개원 필수</span>');
-  if(d.rate>=5) parts.push('<span class="bb rate">개원 원장님 '+Math.round(d.rate)+'% 구매</span>');
+  // 구매율 숫자 배지는 사용자 지시로 뺌(2026-11-12 "구매율은 그냥 빼자") — 구매율은 정렬·대표 선정·필수 판정에만 쓴다
   return parts.length?'<div class="buybadge">'+parts.join('')+'</div>':'';
 }
 const PIN_RE_=/ACUREX|아큐렉스/i;   // 항상 따로 노출하는 브랜드(사용자 지시 2026-11-12: "아큐렉스는 별도로 무조건 추가")
